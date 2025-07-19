@@ -1,0 +1,33 @@
+plugins {
+    id 'java'
+}
+
+group = 'me.yourname'
+version = '1.0'
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/' }
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+    maven { url = 'https://repo.essentialsx.net/releases/' }
+    maven { url = 'https://nexus.scarsz.me/content/repositories/public/' }
+}
+
+dependencies {
+    compileOnly 'org.spigotmc:spigot-api:1.21.5-R0.1-SNAPSHOT'
+    compileOnly files('libs/EssentialsX-2.21.1.jar')
+    compileOnly files('libs/DiscordSRV-Build-1.29.0.jar')
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    archiveBaseName.set('DiscordNickSync')
+    archiveVersion.set('1.0')
+    destinationDirectory.set(file("${projectDir}/build/libs"))
+}

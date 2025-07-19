@@ -1,0 +1,5 @@
+name: DiscordNickSync
+main: me.yourname.discordnicksync.DiscordNickSyncPlugin
+version: 1.0
+api-version: 1.20
+depend: [DiscordSRV, Essentials]
