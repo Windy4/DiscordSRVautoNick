@@ -1,4 +1,4 @@
-package me.yourname.discordnicksync;
+package me.windy41.discordnicksync;
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Guild;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
