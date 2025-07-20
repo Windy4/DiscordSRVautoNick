@@ -14,12 +14,14 @@ repositories {
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
     maven { url = 'https://repo.essentialsx.net/releases/' }
     maven { url = 'https://nexus.scarsz.me/content/repositories/public/' }
+    maven { url = 'https://repo.lucko.me/' }
 }
 
 dependencies {
     compileOnly 'org.spigotmc:spigot-api:1.21.5-R0.1-SNAPSHOT'
     compileOnly files('libs/EssentialsX-2.21.1.jar')
     compileOnly files('libs/DiscordSRV-Build-1.29.0.jar')
+    compileOnly 'net.luckperms:api:5.4'
 }
 
 tasks.withType(JavaCompile) {
@@ -28,6 +30,6 @@ tasks.withType(JavaCompile) {
 
 jar {
     archiveBaseName.set('DiscordNickSync')
-    archiveVersion.set('1.0')
+    archiveVersion.set('1.1')
     destinationDirectory.set(file("${projectDir}/build/libs"))
 }
