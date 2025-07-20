@@ -1,4 +1,8 @@
 package me.windy41.discordnicksync;
+
+import com.earth2me.essentials.Essentials;
+import com.earth2me.essentials.User;
+
 import github.scarsz.discordsrv.DiscordSRV;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Guild;
 import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
@@ -6,21 +10,24 @@ import github.scarsz.discordsrv.dependencies.jda.api.entities.Member;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.UserManager;
+import net.luckperms.api.node.NodeType;
+import net.luckperms.api.node.types.PrefixNode;
+import net.luckperms.api.node.types.SuffixNode;
+
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
-import net.luckperms.api.node.Node;
-import net.luckperms.api.node.NodeType;
-import net.luckperms.api.node.types.PrefixNode;
-import net.luckperms.api.node.types.SuffixNode;
 
 public class DiscordNickSyncPlugin extends JavaPlugin implements Listener {
+
+    private Essentials essentials;
 
     @Override
     public void onEnable() {
@@ -35,28 +42,34 @@ public class DiscordNickSyncPlugin extends JavaPlugin implements Listener {
         if (DiscordSRV.getPlugin() == null) {
             getLogger().severe("DiscordSRV is not loaded! This plugin requires DiscordSRV.");
             getServer().getPluginManager().disablePlugin(this);
+            return;
         }
+
+        this.essentials = (Essentials) Bukkit.getPluginManager().getPlugin("Essentials");
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        getLogger().severe("Found player " + player);
+        getLogger().info("Found player: " + player.getName());
+
         String discordId = DiscordSRV.getPlugin().getAccountLinkManager().getDiscordId(player.getUniqueId());
         if (discordId == null) {
-            getLogger().severe("No linked Account!");
+            getLogger().warning("No linked Discord account for " + player.getName());
             return;
         }
-        getLogger().severe("Found Discord ID of player: " + discordId);
+
         Guild guild = DiscordSRV.getPlugin().getJda().getGuildById("1117642319001305088");
-        getLogger().severe("Found Server ID: " + guild);
         if (guild == null) {
-            getLogger().severe("No Server ID in DiscordSRV config.yml");
+            getLogger().severe("Discord Guild ID not set correctly or not found.");
             return;
         }
+
         guild.retrieveMemberById(discordId).queue((Member member) -> {
             String nickname = member.getNickname();
-            if (nickname == null) nickname = member.getUser().getName();
+            if (nickname == null || nickname.isBlank()) {
+                nickname = member.getUser().getName();
+            }
 
             DiscordNameParts parts = parseNickname(nickname);
             if (parts == null) {
@@ -64,38 +77,51 @@ public class DiscordNickSyncPlugin extends JavaPlugin implements Listener {
                 return;
             }
 
-            // Set EssentialsX nick
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "nick " + player.getName() + " " + parts.name());
+            String formattedName = parts.name(); // e.g., "Owen W"
 
-            // Set display & tab name
-            Bukkit.getScheduler().runTask(this, () -> {
-                player.setDisplayName(parts.name());
-                player.setPlayerListName(parts.name());
-            });
+            // Set Essentials nickname and display names
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                try {
+                    User essentialsUser = essentials.getUser(player);
+                    essentialsUser.setNickname(formattedName);
+                } catch (Exception e) {
+                    getLogger().severe("Failed to set Essentials nickname: " + e.getMessage());
+                }
+
+                player.setDisplayName(formattedName);
+                player.setPlayerListName(formattedName);
+            }, 20L); // delay 1 second to avoid plugin conflicts
 
             // Set prefix/suffix via LuckPerms
             LuckPerms luckPerms = LuckPermsProvider.get();
-            luckPerms.getUserManager().loadUser(player.getUniqueId()).thenAccept(user -> {
-                user.data().clear(NodeType.PREFIX::matches);
-                user.data().clear(NodeType.SUFFIX::matches);
+            UserManager userManager = luckPerms.getUserManager();
+
+            userManager.loadUser(player.getUniqueId()).thenAccept(lpUser -> {
+                lpUser.data().clear(NodeType.PREFIX::matches);
+                lpUser.data().clear(NodeType.SUFFIX::matches);
+                lpUser.data().clear(NodeType.INHERITANCE::matches); // clear old groups if needed
 
                 PrefixNode prefixNode = PrefixNode.builder("[" + parts.house() + "] ", 10).build();
-                SuffixNode suffixNode = SuffixNode.builder(parts.initial() + ".", 10).build();
+                SuffixNode suffixNode = SuffixNode.builder(" " + parts.initial() + ".", 10).build();
+                lpUser.data().add(prefixNode);
+                lpUser.data().add(suffixNode);
 
-                user.data().add(prefixNode);
-                user.data().add(suffixNode);
+                // Assign house group (e.g., koru, britten)
+                String houseGroup = parts.house().toLowerCase(); 
+                lpUser.data().add(net.luckperms.api.node.types.InheritanceNode.builder(houseGroup).build());
 
-                luckPerms.getUserManager().saveUser(user);
+                userManager.saveUser(lpUser);
             });
         });
     }
+
     private DiscordNameParts parseNickname(String nickname) {
-        // Example format: "[House] Name I." or "Name I."
-        Pattern pattern = Pattern.compile("(.*?)\\s*\\|\\s*(.*)");
+        // Expected nickname format: "Owen W | Koru"
+        Pattern pattern = Pattern.compile("^(.*?)\\s*\\|\\s*(.*)$");
         Matcher matcher = pattern.matcher(nickname);
         if (matcher.matches()) {
-            String name = matcher.group(1).trim();   // "Owen W"
-            String house = matcher.group(2).trim();  // "Koru"
+            String name = matcher.group(1).trim();   // e.g., "Owen W"
+            String house = matcher.group(2).trim();  // e.g., "Koru"
             String[] nameParts = name.split("\\s+");
             String initial = nameParts.length > 1 ? nameParts[1].substring(0, 1) : "?";
             return new DiscordNameParts(house, name, initial);

@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'me.windy41'
-version = '1.1'
+version = '1.2'
 
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
@@ -30,6 +30,6 @@ tasks.withType(JavaCompile) {
 
 jar {
     archiveBaseName.set('DiscordNickSync')
-    archiveVersion.set('1.1')
+    archiveVersion.set('1.2')
     destinationDirectory.set(file("${projectDir}/build/libs"))
 }
